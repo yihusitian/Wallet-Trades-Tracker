@@ -17,7 +17,7 @@ def add_unit_to_bignumber(bignumber: Union[int, float]) -> str:
                 bignumber /= 1000.0
                 unit_index += 1
 
-        formatted_number = "{:.2f}{}".format(bignumber, units[unit_index])
+        formatted_number = "{:.4f}{}".format(bignumber, units[unit_index])
         return formatted_number
 
 
