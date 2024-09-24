@@ -82,7 +82,7 @@ class OnChainBot():
         await asyncio.gather(*swaps_transactions_to_process)
         
         
-    async def process_swaps_transactions(self):
+    async def process_swaps_transactions(self, transaction: AttributeDict):
         """
         Process swaps transactions.
         
@@ -90,8 +90,8 @@ class OnChainBot():
             ``transaction (AttributeDict)``: transaction dictionnary containing all the informations.
         """
         
-        # transaction_hash = transaction.hash.hex()
-        transaction_hash = "0xc4c4702c8e706bf7011b65a26b196c51eb3fed9ca52b1b306f1b111452756e0a"
+        transaction_hash = transaction.hash.hex()
+        # transaction_hash = "0xc4c4702c8e706bf7011b65a26b196c51eb3fed9ca52b1b306f1b111452756e0a"
         while True:
             try:
                 tx_infos = self.web3.eth.get_transaction_receipt(transaction_hash)
@@ -100,8 +100,8 @@ class OnChainBot():
             except TransactionNotFound:
                 await asyncio.sleep(1)
                 
-        # from_address = transaction['from']
-        from_address = "0xf4B410A0EEE79034331353C166284130A33d8053"
+        from_address = transaction['from']
+        # from_address = "0xf4B410A0EEE79034331353C166284130A33d8053"
         tx_logs = tx_infos['logs']
         
         swap_infos = {
@@ -241,21 +241,18 @@ class OnChainBot():
         """
         Creates a loop that will analyze each block created.
         """
+        latest_block_number = await self.get_block_number()
 
-        await self.process_swaps_transactions()
+        while True:
+            current_block_number = await self.get_block_number()
 
-        # latest_block_number = await self.get_block_number()
-        #
-        # while True:
-        #     current_block_number = await self.get_block_number()
-        #
-        #     if current_block_number > latest_block_number:
-        #         if self.verbose is True:
-        #             print(f"\n[{self.blockchain}] [BLOCK {current_block_number}]")
-        #         latest_block_number = current_block_number
-        #         self.block_number = current_block_number
-        #         self.transactions = await self.get_block_transactions()
-        #         await self.process_transactions()
+            if current_block_number > latest_block_number:
+                if self.verbose is True:
+                    print(f"\n[{self.blockchain}] [BLOCK {current_block_number}]")
+                latest_block_number = current_block_number
+                self.block_number = current_block_number
+                self.transactions = await self.get_block_transactions()
+                await self.process_transactions()
 
 
 
