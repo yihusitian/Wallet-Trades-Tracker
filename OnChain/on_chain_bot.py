@@ -152,12 +152,12 @@ class OnChainBot():
 
                             print(pool_type)
                             if pool_type == "V2_POOL":
-                                # amount0_in, amount1_in, amount0_out, amount1_out = [int.from_bytes(swap_data[i:i+64], byteorder='big') for i in range(0, 256, 64)]
+                                amount0_in, amount1_in, amount0_out, amount1_out = [int.from_bytes(swap_data[i:i+32], byteorder='big') for i in range(0, 128, 32)]
                                 # Convert 32-byte chunks to integers directly using `int.from_bytes()`
-                                amount0_in = int.from_bytes(swap_data[0:32], byteorder='big')
-                                amount1_in = int.from_bytes(swap_data[32:64], byteorder='big')
-                                amount0_out = int.from_bytes(swap_data[64:96], byteorder='big')
-                                amount1_out = int.from_bytes(swap_data[96:128], byteorder='big')
+                                # amount0_in = int.from_bytes(swap_data[0:32], byteorder='big')
+                                # amount1_in = int.from_bytes(swap_data[32:64], byteorder='big')
+                                # amount0_out = int.from_bytes(swap_data[64:96], byteorder='big')
+                                # amount1_out = int.from_bytes(swap_data[96:128], byteorder='big')
                                 print(amount0_in, amount1_in)
                                 print(amount0_out, amount1_out)
                                 
