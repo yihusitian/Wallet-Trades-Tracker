@@ -136,6 +136,7 @@ class OnChainBot():
                                 Call(pool_address, 'token0()(address)', [['token0_address', None]]),
                                 Call(pool_address, 'token1()(address)', [['token1_address', None]]),
                             ]
+                            #池子币对儿
                             pool_tokens_infos = await Multicall(queries, _w3=self.web3, require_success=True).coroutine()
                             token0_address = Web3.to_checksum_address(pool_tokens_infos['token0_address'])
                             token1_address = Web3.to_checksum_address(pool_tokens_infos['token1_address'])
@@ -146,10 +147,18 @@ class OnChainBot():
                                 Call(token0_address, 'decimals()(uint8)', [['token0_decimals', None]]),
                                 Call(token1_address, 'decimals()(uint8)', [['token1_decimals', None]])
                             ]
+                            #{'token0_symbol': 'WETH', 'token1_symbol': 'MARS', 'token0_decimals': 18, 'token1_decimals': 9}
                             tokens_infos = await Multicall(queries, _w3=self.web3, require_success=True).coroutine()
-                            
+
                             if pool_type == "V2_POOL":
-                                amount0_in, amount1_in, amount0_out, amount1_out = [int(swap_data[i:i+64], 16) for i in range(0, 256, 64)]
+                                # amount0_in, amount1_in, amount0_out, amount1_out = [int.from_bytes(swap_data[i:i+64], byteorder='big') for i in range(0, 256, 64)]
+                                # Convert 32-byte chunks to integers directly using `int.from_bytes()`
+                                amount0_in = int.from_bytes(swap_data[0:30], byteorder='big')
+                                amount1_in = int.from_bytes(swap_data[32:64], byteorder='big')
+                                amount0_out = int.from_bytes(swap_data[64:96], byteorder='big')
+                                amount1_out = int.from_bytes(swap_data[96:128], byteorder='big')
+                                print(amount0_in, amount1_in)
+                                print(amount0_out, amount1_out)
                                 
                                 if amount0_in != 0:
                                     token0_amount = amount0_in
@@ -229,12 +238,12 @@ class OnChainBot():
         """
         Creates a loop that will analyze each block created.
         """
-        
+
         latest_block_number = await self.get_block_number()
         
         while True:
             current_block_number = await self.get_block_number()
-            
+
             if current_block_number > latest_block_number:
                 if self.verbose is True:
                     print(f"\n[{self.blockchain}] [BLOCK {current_block_number}]")
