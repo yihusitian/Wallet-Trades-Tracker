@@ -82,7 +82,7 @@ class OnChainBot():
         await asyncio.gather(*swaps_transactions_to_process)
         
         
-    async def process_swaps_transactions(self, transaction: AttributeDict):
+    async def process_swaps_transactions(self):
         """
         Process swaps transactions.
         
@@ -90,8 +90,8 @@ class OnChainBot():
             ``transaction (AttributeDict)``: transaction dictionnary containing all the informations.
         """
         
-        transaction_hash = transaction.hash.hex()
-        # transaction_hash = "0xef8e7334b81df1fdf6c81c23adb5dc6e411c611a215ac3dba44cc0d5271c7457"
+        # transaction_hash = transaction.hash.hex()
+        transaction_hash = "0xc4c4702c8e706bf7011b65a26b196c51eb3fed9ca52b1b306f1b111452756e0a"
         while True:
             try:
                 tx_infos = self.web3.eth.get_transaction_receipt(transaction_hash)
@@ -100,8 +100,8 @@ class OnChainBot():
             except TransactionNotFound:
                 await asyncio.sleep(1)
                 
-        from_address = transaction['from']
-        # from_address = "0xae2Fc483527B8EF99EB5D9B44875F005ba1FaE13"
+        # from_address = transaction['from']
+        from_address = "0xf4B410A0EEE79034331353C166284130A33d8053"
         tx_logs = tx_infos['logs']
         
         swap_infos = {
@@ -150,6 +150,7 @@ class OnChainBot():
                             #{'token0_symbol': 'WETH', 'token1_symbol': 'MARS', 'token0_decimals': 18, 'token1_decimals': 9}
                             tokens_infos = await Multicall(queries, _w3=self.web3, require_success=True).coroutine()
 
+                            print(pool_type)
                             if pool_type == "V2_POOL":
                                 # amount0_in, amount1_in, amount0_out, amount1_out = [int.from_bytes(swap_data[i:i+64], byteorder='big') for i in range(0, 256, 64)]
                                 # Convert 32-byte chunks to integers directly using `int.from_bytes()`
@@ -180,7 +181,7 @@ class OnChainBot():
                                     
                             elif pool_type == "V3_POOL":
                                 def hex_to_decimal(hex_string: str):
-                                    decimal = int(hex_string, 16)
+                                    decimal = int.from_bytes(hex_string, byteorder='big')
                                     
                                     if decimal & (1 << (len(hex_string) * 4 - 1)):
                                         decimal = twos_complement(value=decimal, bit_length=len(hex_string) * 4)
@@ -189,10 +190,18 @@ class OnChainBot():
                                 def twos_complement(value: int, bit_length: int):
                                     return value - (1 << bit_length)
 
-                                amount0 = hex_to_decimal(hex_string=swap_data[0:64])
-                                amount1 = hex_to_decimal(hex_string=swap_data[64:128])
-                                
-                                if amount0 > 0:    
+                                print(swap_data)
+                                amount0 = hex_to_decimal(hex_string=swap_data[0:30])
+                                amount1 = hex_to_decimal(hex_string=swap_data[96:128])
+
+                                #1095044307.378286499
+                                #1146650124837
+                                #1260755145249666042757120
+                                #12421531982442594304
+                                print(amount0)
+                                print(hex_to_decimal(hex_string=swap_data[30:64]))
+
+                                if amount0 > 0:
                                     token0_amount = abs(amount0)
                                     token1_amount = abs(amount1)
                                     
@@ -239,15 +248,17 @@ class OnChainBot():
         Creates a loop that will analyze each block created.
         """
 
-        latest_block_number = await self.get_block_number()
-        
-        while True:
-            current_block_number = await self.get_block_number()
+        await self.process_swaps_transactions()
 
-            if current_block_number > latest_block_number:
-                if self.verbose is True:
-                    print(f"\n[{self.blockchain}] [BLOCK {current_block_number}]")
-                latest_block_number = current_block_number
-                self.block_number = current_block_number
-                self.transactions = await self.get_block_transactions()
-                await self.process_transactions()
+        # latest_block_number = await self.get_block_number()
+        #
+        # while True:
+        #     current_block_number = await self.get_block_number()
+        #
+        #     if current_block_number > latest_block_number:
+        #         if self.verbose is True:
+        #             print(f"\n[{self.blockchain}] [BLOCK {current_block_number}]")
+        #         latest_block_number = current_block_number
+        #         self.block_number = current_block_number
+        #         self.transactions = await self.get_block_transactions()
+        #         await self.process_transactions()
