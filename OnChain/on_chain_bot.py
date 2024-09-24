@@ -137,8 +137,8 @@ class OnChainBot():
                                 Call(pool_address, 'token1()(address)', [['token1_address', None]]),
                             ]
                             pool_tokens_infos = await Multicall(queries, _w3=self.web3, require_success=True).coroutine()
-                            token0_address = Web3.toChecksumAddress(pool_tokens_infos['token0_address'])
-                            token1_address = Web3.toChecksumAddress(pool_tokens_infos['token1_address'])
+                            token0_address = Web3.to_checksum_address(pool_tokens_infos['token0_address'])
+                            token1_address = Web3.to_checksum_address(pool_tokens_infos['token1_address'])
                             
                             queries = [
                                 Call(token0_address, 'symbol()(string)', [['token0_symbol', None]]),
