@@ -129,7 +129,7 @@ class OnChainBot():
                     for pool_type, pool_values in c.SWAPS_HEX.items():
                         if tx_log_topic in pool_values:
                             is_tx_swap = True
-                            swap_data = tx_log['data'][2:]
+                            swap_data = tx_log['data']
 
                             pool_address = tx_log['address']
                             queries = [
@@ -154,7 +154,7 @@ class OnChainBot():
                             if pool_type == "V2_POOL":
                                 # amount0_in, amount1_in, amount0_out, amount1_out = [int.from_bytes(swap_data[i:i+64], byteorder='big') for i in range(0, 256, 64)]
                                 # Convert 32-byte chunks to integers directly using `int.from_bytes()`
-                                amount0_in = int.from_bytes(swap_data[0:30], byteorder='big')
+                                amount0_in = int.from_bytes(swap_data[0:32], byteorder='big')
                                 amount1_in = int.from_bytes(swap_data[32:64], byteorder='big')
                                 amount0_out = int.from_bytes(swap_data[64:96], byteorder='big')
                                 amount1_out = int.from_bytes(swap_data[96:128], byteorder='big')
@@ -182,24 +182,18 @@ class OnChainBot():
                             elif pool_type == "V3_POOL":
                                 def hex_to_decimal(hex_string: str):
                                     decimal = int.from_bytes(hex_string, byteorder='big')
-                                    
-                                    if decimal & (1 << (len(hex_string) * 4 - 1)):
-                                        decimal = twos_complement(value=decimal, bit_length=len(hex_string) * 4)
+                                    # 符号处理
+                                    if decimal & (1 << 255):  # 如果最高位为1，表示是负数
+                                        decimal -= 1 << 256
                                     return decimal
 
-                                def twos_complement(value: int, bit_length: int):
-                                    return value - (1 << bit_length)
-
                                 print(swap_data)
-                                amount0 = hex_to_decimal(hex_string=swap_data[0:30])
-                                amount1 = hex_to_decimal(hex_string=swap_data[96:128])
+                                print(len(swap_data))
+                                amount0 = hex_to_decimal(hex_string=swap_data[0:32])
+                                amount1 = hex_to_decimal(hex_string=swap_data[32:64])
 
-                                #1095044307.378286499
-                                #1146650124837
-                                #1260755145249666042757120
-                                #12421531982442594304
                                 print(amount0)
-                                print(hex_to_decimal(hex_string=swap_data[30:64]))
+                                print(amount1)
 
                                 if amount0 > 0:
                                     token0_amount = abs(amount0)
@@ -262,3 +256,7 @@ class OnChainBot():
         #         self.block_number = current_block_number
         #         self.transactions = await self.get_block_transactions()
         #         await self.process_transactions()
+
+
+
+# if __name__ == '__main__':
