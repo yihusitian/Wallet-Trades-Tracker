@@ -31,8 +31,9 @@ async def send_company_wechat_message(swap_infos: dict):
         }
     }
 
+    headers = {"Content-Type": "text/plain"}
     try:
-        requests.post(url=webhook_url, data=payload)
+        requests.post(url=webhook_url, headers=headers, json=payload)
     except:
         print("[!] Couldn't send CompanyWechat message.")
 
