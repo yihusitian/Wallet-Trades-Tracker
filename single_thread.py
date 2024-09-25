@@ -7,36 +7,136 @@ infura_url = 'https://mainnet.infura.io/v3/cf894d2a298148e1b27782472731936e'
 web3 = Web3(Web3.HTTPProvider(infura_url))
 
 
-# Uniswap V2 Pair合约地址 (示例地址，替换为你关心的合约地址)
-uniswap_pair_address = '0xCBdE0453d4E7D748077c1b0Ac2216C011DD2f406'
-
 # Swap事件签名的Keccak256哈希
 swap_event_signature_hash = web3.keccak(text="Swap(address,uint256,uint256,uint256,uint256,address)").hex()
 
+swap_event_signature_v3 = web3.keccak(text='Swap(address,address,int256,int256,uint160,uint128,int24)').hex()
 
-# 查询某个代币合约的历史事件
-filter_params = {
-    #20805166
-    'fromBlock': 20805291
-,  # 过去100000个区块
-    'toBlock': 20805291
-,  # 到最新区块
-    # 'fromBlock': web3.eth.block_number - 100,  # 过去100000个区块
-    # 'toBlock': web3.eth.block_number,  # 到最新区块
-    'address': web3.to_checksum_address("0x0ef3b554152A708d3031dDE5be3218C245CdC48c"),
-    'topics': [
-        swap_event_signature_hash
-    ]  # 可选择特定事件签名，也可以留空
-}
 
-# 创建过滤器
-history_filter = web3.eth.filter(filter_params)
+def getUniswapV3PairAddress():
+    # Uniswap V3 工厂合约地址
+    uniswap_v3_factory_address = Web3.to_checksum_address('0x1F98431c8aD98523631AE4a59f267346ea31F984')
 
-# 查询历史事件
-events = history_filter.get_all_entries()
-for event in events:
-    print(f"历史事件: {event}")
+    # Uniswap V3 工厂合约ABI (部分示例)
+    uniswap_v3_factory_abi = '''
+    [
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "tokenA",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "tokenB",
+            "type": "address"
+          },
+          {
+            "internalType": "uint24",
+            "name": "fee",
+            "type": "uint24"
+          }
+        ],
+        "name": "getPool",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "pool",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ]
+    '''
 
+    # 初始化工厂合约实例
+    v3_factory_contract = web3.eth.contract(address=uniswap_v3_factory_address, abi=uniswap_v3_factory_abi)
+
+    # 指定代币地址和费用级别 (WETH, USDC, 0.3%)
+    tokenA = Web3.to_checksum_address('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2')  # WETH
+    tokenB = Web3.to_checksum_address('0xc3D2B3e23855001508e460A6dbE9f9e3116201aF')  # MARS
+    # fee = 3000  # 0.3% 的手续费级别
+    # fee = 100
+    # fee = 500
+    fee = 10000
+
+    # 获取Uniswap V3池合约地址
+    pool_address = v3_factory_contract.functions.getPool(tokenA, tokenB, fee).call()
+
+    print(f"Uniswap V3 Pool Address for WETH/MARS (0.3% Fee Tier): {pool_address}")
+    return pool_address
+
+def getUniswapV2PairAddress():
+    # Uniswap V2 工厂合约地址
+    uniswap_v2_factory_address = Web3.to_checksum_address('0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f')
+    # Uniswap V2 工厂合约的ABI (部分示例)
+    uniswap_v2_factory_abi = '''
+    [
+      {
+        "constant": true,
+        "inputs": [
+          {
+            "name": "tokenA",
+            "type": "address"
+          },
+          {
+            "name": "tokenB",
+            "type": "address"
+          }
+        ],
+        "name": "getPair",
+        "outputs": [
+          {
+            "name": "pair",
+            "type": "address"
+          }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ]
+    '''
+    # 初始化工厂合约实例
+    factory_contract = web3.eth.contract(address=uniswap_v2_factory_address, abi=uniswap_v2_factory_abi)
+
+    # 指定要查询的两个代币的地址 (比如 WETH 和 USDC)
+    tokenA = Web3.to_checksum_address('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2')  # WETH
+    tokenB = Web3.to_checksum_address('0xc3D2B3e23855001508e460A6dbE9f9e3116201aF')  # MARS
+
+    # 调用getPair方法获取池合约地址
+    pair_address = factory_contract.functions.getPair(tokenA, tokenB).call()
+    print(f"Uniswap V2 Pool Address for WETH/MARS: {pair_address}")
+    return pair_address
+
+
+if __name__ == '__main__':
+    # 查询某个代币合约的历史事件
+    filter_params = {
+        # 20805166
+        # 'fromBlock': 20819132
+        # 过去100000个区块
+        # 'toBlock': 20819132
+        # 到最新区块
+        'fromBlock': web3.eth.block_number - 1000,  # 过去100000个区块
+        'toBlock': web3.eth.block_number,  # 到最新区块
+        'address': getUniswapV3PairAddress(),
+        'topics': [
+            # swap_event_signature_hash
+            swap_event_signature_v3
+        ]  # 可选择特定事件签名，也可以留空
+    }
+
+    # 创建过滤器
+    history_filter = web3.eth.filter(filter_params)
+
+    # 查询历史事件
+    events = history_filter.get_all_entries()
+    for event in events:
+        print(f"历史事件: {event}")
 
 #
 #
