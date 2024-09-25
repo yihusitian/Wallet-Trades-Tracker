@@ -256,7 +256,3 @@ class OnChainBot():
                 self.transactions = await self.get_block_transactions()
                 await self.process_transactions()
         # await self.process_swaps_transactions(transaction=None)
-
-
-
-# if __name__ == '__main__':
