@@ -14,6 +14,7 @@ from OnChain import functions as f
 
 from Discord.functions import send_discord_webhook
 from Telegram.functions import send_telegram_message
+from CompanyWechat.functions import send_company_wechat_message
 
 
 class OnChainBot():
@@ -43,8 +44,9 @@ class OnChainBot():
             ``swap_infos (dict)``: dictionnary containing all the informations from the swap, e.g. tokens names, amounts swapped, transaction link...
         """
         
-        await send_discord_webhook(swap_infos=swap_infos)
-        await send_telegram_message(swap_infos=swap_infos)
+        # await send_discord_webhook(swap_infos=swap_infos)
+        # await send_telegram_message(swap_infos=swap_infos)
+        await send_company_wechat_message(swap_infos=swap_infos)
         
         
     async def get_block_number(self):
