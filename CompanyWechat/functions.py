@@ -1,28 +1,30 @@
 from dotenv import load_dotenv
 import os
-
+import traceback
+import json
 import requests
 
-load_dotenv(os.path.join(os.getcwd(), '.env\.env'))
+load_dotenv(os.path.join(os.getcwd(), '.env'))
 company_wechat_webhook_id = os.getenv("company_wechat_webhook_id")
+print(os.getenv("company_wechat_webhook_id"))
 
 async def send_company_wechat_message(swap_infos: dict):
     if company_wechat_webhook_id is None:
         print("未配置company_wechat_webhook_id")
         return
-    webhook_url = f"'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={company_wechat_webhook_id}"
+    webhook_url = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={company_wechat_webhook_id}"
 
     message = (
-        f"✨ <a href='{swap_infos['LINKS']['SCAN']['TRANSACTION']}'>{swap_infos['CHAIN']} - {swap_infos['MAKER_INFOS']['SHORT_ADDRESS']}</a>\n" +
-        f"👤 <a href='{swap_infos['LINKS']['SCAN']['MAKER']}'>{swap_infos['MAKER_INFOS']['SHORT_ADDRESS']}</a>\n" +
-        f"📜 <a href='{swap_infos['LINKS']['SCAN']['TRANSACTION']}'>TX</a>\n\n"
+        f"✨ [{swap_infos['CHAIN']} - {swap_infos['MAKER_INFOS']['SHORT_ADDRESS']}]({swap_infos['LINKS']['SCAN']['TRANSACTION']})\n" +
+        f"👤 [{swap_infos['MAKER_INFOS']['SHORT_ADDRESS']}]({swap_infos['LINKS']['SCAN']['MAKER']})\n" +
+        f"📜 [TX]({swap_infos['LINKS']['SCAN']['TRANSACTION']})\n\n"
     )
     for swap_id, swap_infos in swap_infos['SWAPS'].items():
         emoji_swap_id = await get_emoji_swap_id(swap_id=swap_id)
         message += (
             f"{emoji_swap_id} SWAP {swap_infos['SYMBOLS']['TOKEN0']} » {swap_infos['SYMBOLS']['TOKEN1']}\n" +
             f"• 💵 {swap_infos['AMOUNTS']['TOKEN0']} ${swap_infos['SYMBOLS']['TOKEN0']} » {swap_infos['AMOUNTS']['TOKEN1']} ${swap_infos['SYMBOLS']['TOKEN1']}\n" +
-            f"• 📊 <a href='{swap_infos['LINKS']['CHART']}'>CHART/TRADING</a>\n"
+            f"• 📊 [CHART/TRADING]({swap_infos['LINKS']['CHART']})\n"
         )
     payload = {
         "msgtype": 'markdown',
@@ -30,12 +32,11 @@ async def send_company_wechat_message(swap_infos: dict):
             "content": message
         }
     }
-
-    headers = {"Content-Type": "text/plain"}
     try:
-        requests.post(url=webhook_url, headers=headers, json=payload)
-    except:
-        print("[!] Couldn't send CompanyWechat message.")
+        r = requests.post(webhook_url, data=json.dumps(payload), timeout=10)
+    except Exception as e:
+        print(f"发送企业微信失败:{e}")
+        print(traceback.format_exc())
 
 async def get_emoji_swap_id(swap_id: int) -> str:
     """
