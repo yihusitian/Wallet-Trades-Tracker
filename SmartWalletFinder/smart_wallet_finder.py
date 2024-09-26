@@ -85,11 +85,13 @@ class SmartWalletFinder():
                     [swap_event.hex() for sublist in [swap_events for swap_events in c.SWAPS_HEX.values()] for swap_event in sublist]
                 ]
             })
+            print(f"查询区块{start_block}-{temp_end_block}的历史事件")
+            print(f"过滤查询出区块日志事件有{len(block_events)}个")
             result += block_events
             start_block = temp_end_block
 
-        print(f"过滤查询出区块日志事件有{len(block_events)}个")
-        return block_events
+        print(f"累计查询出区块日志事件有{len(result)}个")
+        return result
 
     def get_event_tx_ids(self, block_events: list) -> set:
         # 使用集合来提取不重复的交易哈希
