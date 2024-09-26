@@ -14,6 +14,7 @@ def append_token_swap_data(data, token0_sympol:str, token1_sympol:str):
         # 如果文件不存在，创建文件并写入表头
         df.to_csv(filename, mode='w', header=True, index=False)
     print(f"追加保存 {token0_sympol}/{token1_sympol} 的交易信息到文件: {filename}")
+    execute_analyize(df)
 
 
 def execute_analyize(df):
@@ -46,7 +47,6 @@ def calculate_eth_profit(wallet_df):
             eth_profit -= row['token0_amount']  # 买入ETH时，减少ETH
         elif row['token1_symbol'] == 'ETH':
             eth_profit += row['token1_amount']  # 卖出ETH时，增加ETH
-
     return eth_profit
 
 

@@ -12,7 +12,7 @@ from multicall import Call, Multicall
 from OnChain import constants as c
 from SmartWalletFinder import functions as f
 from datetime import datetime
-import data_analyize
+from SmartWalletFinder import data_analyize
 
 class SmartWalletFinder():
 
@@ -67,7 +67,8 @@ class SmartWalletFinder():
         # })
         # # 查询历史事件
         # block_events = history_filter.get_all_entries()
-
+        if end_block == 0:
+            end_block = self.web3.eth.block_number
         #某些 RPC 提供者可能不支持过滤器操作，尤其是某些云服务或较旧版本的节点
         #所以使用get_logs替换
         block_events = self.web3.eth.get_logs({
