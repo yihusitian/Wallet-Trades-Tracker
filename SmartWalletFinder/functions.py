@@ -3,6 +3,27 @@ import os
 from web3 import Web3
 from OnChain import constants as c
 
+
+def add_unit_to_bignumber(bignumber: Union[int, float]) -> str:
+    """
+    Adds unit to the number, e.g. 1000000 -> "1.0M"
+
+    Parameters:
+            ``bignumber (int or float)``: amount
+    """
+
+    bignumber = float(bignumber)
+    units = ["", "K", "M", "B", "T", "Q", "Qi", "Sx", "Sp", "O", "N", "D"]
+    unit_index = 0
+
+    while bignumber >= 1000:
+        bignumber /= 1000.0
+        unit_index += 1
+
+    formatted_number = "{:.2f}{}".format(bignumber, units[unit_index])
+    return formatted_number
+
+
 """
     加载meme合约文件
 """
