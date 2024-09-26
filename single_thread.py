@@ -2,121 +2,12 @@ import time
 from web3 import Web3
 from hexbytes import HexBytes
 from OnChain import constants as c
+from SmartWalletFinder import functions
 
 
 # 连接到以太坊节点 (例如 Infura)
 infura_url = 'https://mainnet.infura.io/v3/cf894d2a298148e1b27782472731936e'
 web3 = Web3(Web3.HTTPProvider(infura_url))
-
-
-# Swap事件签名的Keccak256哈希
-swap_event_signature_hash = web3.keccak(text="Swap(address,uint256,uint256,uint256,uint256,address)").hex()
-
-swap_event_signature_v3 = web3.keccak(text='Swap(address,address,int256,int256,uint160,uint128,int24)').hex()
-
-print(swap_event_signature_hash)
-print(swap_event_signature_v3)
-
-def getUniswapV3PairAddress():
-    # Uniswap V3 工厂合约地址
-    uniswap_v3_factory_address = Web3.to_checksum_address('0x1F98431c8aD98523631AE4a59f267346ea31F984')
-
-    # Uniswap V3 工厂合约ABI (部分示例)
-    uniswap_v3_factory_abi = '''
-    [
-      {
-        "inputs": [
-          {
-            "internalType": "address",
-            "name": "tokenA",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "tokenB",
-            "type": "address"
-          },
-          {
-            "internalType": "uint24",
-            "name": "fee",
-            "type": "uint24"
-          }
-        ],
-        "name": "getPool",
-        "outputs": [
-          {
-            "internalType": "address",
-            "name": "pool",
-            "type": "address"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ]
-    '''
-
-    # 初始化工厂合约实例
-    v3_factory_contract = web3.eth.contract(address=uniswap_v3_factory_address, abi=uniswap_v3_factory_abi)
-
-    # 指定代币地址和费用级别 (WETH, USDC, 0.3%)
-    tokenA = Web3.to_checksum_address('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2')  # WETH
-    tokenB = Web3.to_checksum_address('0xc3D2B3e23855001508e460A6dbE9f9e3116201aF')  # MARS
-    # fee = 3000  # 0.3% 的手续费级别
-    # fee = 100
-    fee = 500
-    # fee = 10000
-
-    # 获取Uniswap V3池合约地址
-    pool_address = v3_factory_contract.functions.getPool(tokenA, tokenB, fee).call()
-    pool_addresses = [pool_address for pool_address in [v3_factory_contract.functions.getPool(tokenA, tokenB, fee).call() for fee in [100, 500, 3000, 10000]] if pool_address != '0x0000000000000000000000000000000000000000']
-
-
-    print(f"Uniswap V3 Pool Address for WETH/MARS (0.3% Fee Tier): {pool_address}")
-    return pool_address
-
-def getUniswapV2PairAddress():
-    # Uniswap V2 工厂合约地址
-    uniswap_v2_factory_address = Web3.to_checksum_address('0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f')
-    # Uniswap V2 工厂合约的ABI (部分示例)
-    uniswap_v2_factory_abi = '''
-    [
-      {
-        "constant": true,
-        "inputs": [
-          {
-            "name": "tokenA",
-            "type": "address"
-          },
-          {
-            "name": "tokenB",
-            "type": "address"
-          }
-        ],
-        "name": "getPair",
-        "outputs": [
-          {
-            "name": "pair",
-            "type": "address"
-          }
-        ],
-        "payable": false,
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ]
-    '''
-    # 初始化工厂合约实例
-    factory_contract = web3.eth.contract(address=uniswap_v2_factory_address, abi=uniswap_v2_factory_abi)
-
-    # 指定要查询的两个代币的地址 (比如 WETH 和 USDC)
-    tokenA = Web3.to_checksum_address('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2')  # WETH
-    tokenB = Web3.to_checksum_address('0xc3D2B3e23855001508e460A6dbE9f9e3116201aF')  # MARS
-
-    # 调用getPair方法获取池合约地址
-    pair_address = factory_contract.functions.getPair(tokenA, tokenB).call()
-    print(f"Uniswap V2 Pool Address for WETH/MARS: {pair_address}")
-    return pair_address
 
 def processEvent(tx_log):
     print(tx_log)
@@ -130,6 +21,8 @@ def processEvent(tx_log):
 
 
 if __name__ == '__main__':
+    print(functions.getUniswapV2PairAddress(web3, '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', '0xc3D2B3e23855001508e460A6dbE9f9e3116201aF'))
+    print(functions.getUniswapV3PairAddress(web3, '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', '0xc3D2B3e23855001508e460A6dbE9f9e3116201aF'))
     # print(getUniswapV2PairAddress())
     # print(getUniswapV3PairAddress())
     # 查询某个代币合约的历史事件
@@ -156,7 +49,6 @@ if __name__ == '__main__':
     # print([item for item in c.SWAPS_HEX.values()])
 
     # print([swap_event.hex() for sublist in [swap_events for swap_events in c.SWAPS_HEX.values()] for swap_event in sublist])
-    print(getUniswapV3PairAddress())
 
 #
 #
