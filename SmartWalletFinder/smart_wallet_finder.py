@@ -41,8 +41,8 @@ class SmartWalletFinder():
 
     def get_dex_swap_pair_address(self, token_address: str):
         pair_addresses = []
-        uniswap_v2_pair_address = f.getUniswapV2PairAddress(self.lp_token_address, token_address)
-        uniswap_v3_pair_address = f.getUniswapV3PairAddress(self.lp_token_address, token_address)
+        uniswap_v2_pair_address = f.getUniswapV2PairAddress(self.web3, self.lp_token_address, token_address)
+        uniswap_v3_pair_address = f.getUniswapV3PairAddress(self.web3, self.lp_token_address, token_address)
         if uniswap_v2_pair_address:
             pair_addresses.append(pair_addresses)
         if uniswap_v3_pair_address:
@@ -65,7 +65,7 @@ class SmartWalletFinder():
         """
         Filters wallets addresses in the block.
         """
-        meme_contracts = f.load_meme_contracts()
+        meme_contracts = f.load_meme_contracts(self.blockchain)
         for meme_contract in meme_contracts:
             arr = str.split(meme_contract, ":")
             meme_contract = arr[0]
