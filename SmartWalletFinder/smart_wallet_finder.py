@@ -51,7 +51,7 @@ class SmartWalletFinder():
         return pair_addresses
 
 
-    async def filter_block_events(self, start_block: int, end_block: int, token_address: str) -> list:
+    async def filter_block_events(self, token_address: str, start_block: int, end_block: int) -> list:
         return self.web3.eth.filter({
             "fromBlock": start_block,
             "toBlock": end_block,
@@ -61,19 +61,32 @@ class SmartWalletFinder():
             ]
         })
 
-    async def process_transactions(self):
+    async def process_block_events(self):
         """
         Filters wallets addresses in the block.
         """
         meme_contracts = f.load_meme_contracts()
         for meme_contract in meme_contracts:
             arr = str.split(meme_contract, ":")
+            meme_contract = arr[0]
+            filter_block_events = await self.filter_block_events(meme_contract, int(arr[1]), int(arr[2]))
+        swaps_blockevents_to_process = [asyncio.create_task(self.process_swaps_block_events(block_event=block_event)) for block_event in filter_block_events]
+        await asyncio.gather(*swaps_blockevents_to_process)
 
 
-        filtered_transactions = [
-            transaction for transaction in self.transactions
-            if transaction.get('from', '').lower() in [meme_contract[:str.index(meme_contract, ":")].lower() for meme_contract in z]
-        ]
-        swaps_transactions_to_process = [asyncio.create_task(self.process_swaps_transactions(transaction=transaction))
-                                         for transaction in filtered_transactions]
-        await asyncio.gather(*swaps_transactions_to_process)
+    async def process_swaps_transactions(self, block_event: AttributeDict):
+        print(block_event)
+        tx_hash = block_event['transactionHash'].hex()
+        print(tx_hash)
+
+
+
+
+    async def run(self):
+        """
+        Creates a loop that will analyze each block created.
+        """
+        await self.process_block_events()
+        # await self.process_swaps_transactions(transaction=None)
+
+

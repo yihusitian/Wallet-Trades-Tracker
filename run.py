@@ -1,4 +1,4 @@
-from OnChain.run import run_on_chain_bots
+from SmartWalletFinder.run import run_on_chain_bots
 
 
 def main():
