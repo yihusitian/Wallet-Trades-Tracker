@@ -115,173 +115,183 @@ class SmartWalletFinder():
             filter_block_events = await self.filter_block_events(meme_contract_address, int(arr[1]), int(arr[2]))
             event_tx_ids = self.get_event_tx_ids(filter_block_events)
             swap_data_infos = [await self.process_swaps_transactions(transaction_hash=tx_id, meme_contract_address=meme_contract_address) for tx_id in event_tx_ids]
+            swap_data_infos = [data_info for data_info in swap_data_infos if data_info is not None]
             if swap_data_infos and len(swap_data_infos) > 0:
                 data_analyize.append_token_swap_data(swap_data_infos, swap_data_infos[0]['token0_symbol'], swap_data_infos[0]['token1_symbol'])
 
 
     async def process_swaps_transactions(self, transaction_hash: str, meme_contract_address: str):
-        """
-        Process swaps transactions.
-        Parameters:
-            ``transaction (AttributeDict)``: transaction dictionnary containing all the informations.
-        """
-        # transaction_hash = "0xc4c4702c8e706bf7011b65a26b196c51eb3fed9ca52b1b306f1b111452756e0a"
-        # 获取交易信息
-        transaction = self.web3.eth.get_transaction(transaction_hash)
+        try:
+            """
+            Process swaps transactions.
+            Parameters:
+                ``transaction (AttributeDict)``: transaction dictionnary containing all the informations.
+            """
+            # transaction_hash = "0xc4c4702c8e706bf7011b65a26b196c51eb3fed9ca52b1b306f1b111452756e0a"
+            # 获取交易信息
+            transaction = self.web3.eth.get_transaction(transaction_hash)
 
-        # print(transaction)
-        while True:
-            try:
-                tx_infos = self.web3.eth.get_transaction_receipt(transaction_hash)
-                break
-            # If RPC provider not synchronized
-            except TransactionNotFound:
-                await asyncio.sleep(1)
+            # print(transaction)
+            while True:
+                try:
+                    tx_infos = self.web3.eth.get_transaction_receipt(transaction_hash)
+                    break
+                # If RPC provider not synchronized
+                except TransactionNotFound:
+                    await asyncio.sleep(1)
 
-        # 获取区块信息
-        block = self.web3.eth.get_block(tx_infos['blockNumber'])
+            # 获取区块信息
+            block = self.web3.eth.get_block(tx_infos['blockNumber'])
 
-        # 获取区块时间戳并转化为可读时间格式
-        block_timestamp = block['timestamp']
-        transaction_time = datetime.utcfromtimestamp(block_timestamp).strftime('%Y-%m-%d %H:%M:%S')
+            # 获取区块时间戳并转化为可读时间格式
+            block_timestamp = block['timestamp']
+            transaction_time = datetime.utcfromtimestamp(block_timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
-        from_address = transaction['from']
-        # from_address = "0xf4B410A0EEE79034331353C166284130A33d8053"
-        tx_logs = tx_infos['logs']
+            from_address = transaction['from']
+            # from_address = "0xf4B410A0EEE79034331353C166284130A33d8053"
+            tx_logs = tx_infos['logs']
 
-        swap_infos = {
-            "CHAIN": self.blockchain,
-            "MAKER_INFOS": {
-                "WALLET_ADDRESS": None
-            },
-            "SWAPS": {},
-            "TX_TIME": transaction_time
-        }
-        result = {
-            "wallet_address": from_address,
-            "tx_time": transaction_time,
-            "token0_symbol": None,
-            "token1_symbol": None,
-            "token0_amount": 0,
-            "token1_amount": 0,
-            "direction": None #1买入 0卖出
-        }
-        if tx_infos['status'] == 1:
-            swap_num = 1
-            swap_infos['MAKER_INFOS']['WALLET_ADDRESS'] = from_address
-            for tx_log in tx_logs:
-                for tx_log_topic in tx_log['topics']:
-                    for pool_type, pool_values in c.SWAPS_HEX.items():
-                        if tx_log_topic in pool_values:
-                            swap_data = tx_log['data']
-                            pool_address = tx_log['address']
-                            queries = [
-                                Call(pool_address, 'token0()(address)', [['token0_address', None]]),
-                                Call(pool_address, 'token1()(address)', [['token1_address', None]]),
-                            ]
-                            # 池子币对儿
-                            pool_tokens_infos = await Multicall(queries, _w3=self.web3, require_success=True).coroutine()
-                            token0_address = Web3.to_checksum_address(pool_tokens_infos['token0_address'])
-                            token1_address = Web3.to_checksum_address(pool_tokens_infos['token1_address'])
+            swap_infos = {
+                "CHAIN": self.blockchain,
+                "MAKER_INFOS": {
+                    "WALLET_ADDRESS": None
+                },
+                "SWAPS": {},
+                "TX_TIME": transaction_time
+            }
+            result = {
+                "wallet_address": from_address,
+                "tx_time": transaction_time,
+                "token0_symbol": None,
+                "token1_symbol": None,
+                "token0_amount": 0,
+                "token1_amount": 0,
+                "direction": None  # 1买入 0卖出
+            }
+            if tx_infos['status'] == 1:
+                swap_num = 1
+                swap_infos['MAKER_INFOS']['WALLET_ADDRESS'] = from_address
+                for tx_log in tx_logs:
+                    for tx_log_topic in tx_log['topics']:
+                        for pool_type, pool_values in c.SWAPS_HEX.items():
+                            if tx_log_topic in pool_values:
+                                swap_data = tx_log['data']
+                                pool_address = tx_log['address']
+                                queries = [
+                                    Call(pool_address, 'token0()(address)', [['token0_address', None]]),
+                                    Call(pool_address, 'token1()(address)', [['token1_address', None]]),
+                                ]
+                                # 池子币对儿
+                                pool_tokens_infos = await Multicall(queries, _w3=self.web3,
+                                                                    require_success=True).coroutine()
+                                token0_address = Web3.to_checksum_address(pool_tokens_infos['token0_address'])
+                                token1_address = Web3.to_checksum_address(pool_tokens_infos['token1_address'])
 
-                            queries = [
-                                Call(token0_address, 'symbol()(string)', [['token0_symbol', None]]),
-                                Call(token1_address, 'symbol()(string)', [['token1_symbol', None]]),
-                                Call(token0_address, 'decimals()(uint8)', [['token0_decimals', None]]),
-                                Call(token1_address, 'decimals()(uint8)', [['token1_decimals', None]])
-                            ]
-                            # {'token0_symbol': 'WETH', 'token1_symbol': 'MARS', 'token0_decimals': 18, 'token1_decimals': 9}
-                            tokens_infos = await Multicall(queries, _w3=self.web3, require_success=True).coroutine()
-                            if pool_type == "V2_POOL":
-                                amount0_in, amount1_in, amount0_out, amount1_out = [int.from_bytes(swap_data[i:i + 32], byteorder='big') for i in range(0, 128, 32)]
-                                if amount0_in != 0:
-                                    token0_amount = amount0_in
-                                    token1_amount = amount1_out
+                                queries = [
+                                    Call(token0_address, 'symbol()(string)', [['token0_symbol', None]]),
+                                    Call(token1_address, 'symbol()(string)', [['token1_symbol', None]]),
+                                    Call(token0_address, 'decimals()(uint8)', [['token0_decimals', None]]),
+                                    Call(token1_address, 'decimals()(uint8)', [['token1_decimals', None]])
+                                ]
+                                # {'token0_symbol': 'WETH', 'token1_symbol': 'MARS', 'token0_decimals': 18, 'token1_decimals': 9}
+                                tokens_infos = await Multicall(queries, _w3=self.web3, require_success=True).coroutine()
+                                if pool_type == "V2_POOL":
+                                    amount0_in, amount1_in, amount0_out, amount1_out = [
+                                        int.from_bytes(swap_data[i:i + 32], byteorder='big') for i in range(0, 128, 32)]
+                                    if amount0_in != 0:
+                                        token0_amount = amount0_in
+                                        token1_amount = amount1_out
 
-                                    token0_symbol = tokens_infos['token0_symbol']
-                                    token1_symbol = tokens_infos['token1_symbol']
-                                    token0_contract_address = token0_address
-                                    token1_contract_address = token1_address
-                                    token0_decimals = tokens_infos['token0_decimals']
-                                    token1_decimals = tokens_infos['token1_decimals']
+                                        token0_symbol = tokens_infos['token0_symbol']
+                                        token1_symbol = tokens_infos['token1_symbol']
+                                        token0_contract_address = token0_address
+                                        token1_contract_address = token1_address
+                                        token0_decimals = tokens_infos['token0_decimals']
+                                        token1_decimals = tokens_infos['token1_decimals']
 
-                                elif amount1_in != 0:
-                                    token0_amount = amount1_in
-                                    token1_amount = amount0_out
+                                    elif amount1_in != 0:
+                                        token0_amount = amount1_in
+                                        token1_amount = amount0_out
 
-                                    token0_symbol = tokens_infos['token1_symbol']
-                                    token1_symbol = tokens_infos['token0_symbol']
-                                    token0_contract_address = token1_address
-                                    token1_contract_address = token0_address
-                                    token0_decimals = tokens_infos['token1_decimals']
-                                    token1_decimals = tokens_infos['token0_decimals']
+                                        token0_symbol = tokens_infos['token1_symbol']
+                                        token1_symbol = tokens_infos['token0_symbol']
+                                        token0_contract_address = token1_address
+                                        token1_contract_address = token0_address
+                                        token0_decimals = tokens_infos['token1_decimals']
+                                        token1_decimals = tokens_infos['token0_decimals']
 
-                            elif pool_type == "V3_POOL":
-                                def hex_to_decimal(hex_string: str):
-                                    decimal = int.from_bytes(hex_string, byteorder='big')
-                                    # 符号处理
-                                    if decimal & (1 << 255):  # 如果最高位为1，表示是负数
-                                        decimal -= 1 << 256
-                                    return decimal
+                                elif pool_type == "V3_POOL":
+                                    def hex_to_decimal(hex_string: str):
+                                        decimal = int.from_bytes(hex_string, byteorder='big')
+                                        # 符号处理
+                                        if decimal & (1 << 255):  # 如果最高位为1，表示是负数
+                                            decimal -= 1 << 256
+                                        return decimal
 
-                                amount0 = hex_to_decimal(hex_string=swap_data[0:32])
-                                amount1 = hex_to_decimal(hex_string=swap_data[32:64])
-                                if amount0 > 0:
-                                    token0_amount = abs(amount0)
-                                    token1_amount = abs(amount1)
+                                    amount0 = hex_to_decimal(hex_string=swap_data[0:32])
+                                    amount1 = hex_to_decimal(hex_string=swap_data[32:64])
+                                    if amount0 > 0:
+                                        token0_amount = abs(amount0)
+                                        token1_amount = abs(amount1)
 
-                                    token0_symbol = tokens_infos['token0_symbol']
-                                    token1_symbol = tokens_infos['token1_symbol']
-                                    token0_contract_address = token0_address
-                                    token1_contract_address = token1_address
-                                    token0_decimals = tokens_infos['token0_decimals']
-                                    token1_decimals = tokens_infos['token1_decimals']
-                                elif amount0 < 0:
-                                    token0_amount = abs(amount1)
-                                    token1_amount = abs(amount0)
+                                        token0_symbol = tokens_infos['token0_symbol']
+                                        token1_symbol = tokens_infos['token1_symbol']
+                                        token0_contract_address = token0_address
+                                        token1_contract_address = token1_address
+                                        token0_decimals = tokens_infos['token0_decimals']
+                                        token1_decimals = tokens_infos['token1_decimals']
+                                    elif amount0 < 0:
+                                        token0_amount = abs(amount1)
+                                        token1_amount = abs(amount0)
 
-                                    token0_symbol = tokens_infos['token1_symbol']
-                                    token1_symbol = tokens_infos['token0_symbol']
-                                    token0_contract_address = token1_address
-                                    token1_contract_address = token0_address
-                                    token0_decimals = tokens_infos['token1_decimals']
-                                    token1_decimals = tokens_infos['token0_decimals']
+                                        token0_symbol = tokens_infos['token1_symbol']
+                                        token1_symbol = tokens_infos['token0_symbol']
+                                        token0_contract_address = token1_address
+                                        token1_contract_address = token0_address
+                                        token0_decimals = tokens_infos['token1_decimals']
+                                        token1_decimals = tokens_infos['token0_decimals']
 
-                            token0_final_amount = token0_amount / 10 ** token0_decimals
-                            token1_final_amount = token1_amount / 10 ** token1_decimals
-                            swap_infos['SWAPS'][swap_num] = {
-                                "SYMBOLS": {
-                                    "TOKEN0": token0_symbol,
-                                    "TOKEN1": token1_symbol,
-                                    "TOKEN0_ADDRESS": token0_contract_address,
-                                    "TOKEN1_ADDRESS": token1_contract_address,
-                                },
-                                "AMOUNTS": {
-                                    "TOKEN0": token0_final_amount,
-                                    "TOKEN1": token1_final_amount
-                                },
-                            }
-                            swap_num += 1
+                                token0_final_amount = token0_amount / 10 ** token0_decimals
+                                token1_final_amount = token1_amount / 10 ** token1_decimals
+                                swap_infos['SWAPS'][swap_num] = {
+                                    "SYMBOLS": {
+                                        "TOKEN0": token0_symbol,
+                                        "TOKEN1": token1_symbol,
+                                        "TOKEN0_ADDRESS": token0_contract_address,
+                                        "TOKEN1_ADDRESS": token1_contract_address,
+                                    },
+                                    "AMOUNTS": {
+                                        "TOKEN0": token0_final_amount,
+                                        "TOKEN1": token1_final_amount
+                                    },
+                                }
+                                swap_num += 1
 
-                            if token0_contract_address.lower() == self.lp_token_address.lower() and token1_contract_address.lower() == meme_contract_address.lower():
-                                result['token0_symbol'] = token0_symbol
-                                result['token1_symbol'] = token1_symbol
-                                result['token0_amount'] += token0_final_amount
-                                result['token1_amount'] += token1_final_amount
-                                result['direction'] = 1
+                                if token0_contract_address.lower() == self.lp_token_address.lower() and token1_contract_address.lower() == meme_contract_address.lower():
+                                    result['token0_symbol'] = token0_symbol
+                                    result['token1_symbol'] = token1_symbol
+                                    result['token0_amount'] += token0_final_amount
+                                    result['token1_amount'] += token1_final_amount
+                                    result['direction'] = 1
 
-                            if token0_contract_address.lower() == meme_contract_address.lower() and token1_contract_address.lower() == self.lp_token_address.lower():
-                                result['token0_symbol'] = token0_symbol
-                                result['token1_symbol'] = token1_symbol
-                                result['token0_amount'] += token0_final_amount
-                                result['token1_amount'] += token1_final_amount
-                                result['direction'] = 0
+                                if token0_contract_address.lower() == meme_contract_address.lower() and token1_contract_address.lower() == self.lp_token_address.lower():
+                                    result['token0_symbol'] = token0_symbol
+                                    result['token1_symbol'] = token1_symbol
+                                    result['token0_amount'] += token0_final_amount
+                                    result['token1_amount'] += token1_final_amount
+                                    result['direction'] = 0
+            print(result)
+            # if self.verbose is True:
+            #     print(f"\n[{self.blockchain}] [{swap_infos['MAKER_INFOS']['WALLET_ADDRESS']}]\n")
+            #     for swap_id, swap_info in swap_infos['SWAPS'].items():
+            #         print(">", swap_id, "-", swap_info)
+            return result
+        except Exception as e:
+            print(f"{transaction_hash}解析异常了{meme_contract_address},异常{e}")
+            return None
 
-            if self.verbose is True:
-                print(f"\n[{self.blockchain}] [{swap_infos['MAKER_INFOS']['WALLET_ADDRESS']}]\n")
-                for swap_id, swap_info in swap_infos['SWAPS'].items():
-                    print(">", swap_id, "-", swap_info)
-        return result
+
+
 
 
     async def run(self):
