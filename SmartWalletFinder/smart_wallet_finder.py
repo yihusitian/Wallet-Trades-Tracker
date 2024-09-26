@@ -12,7 +12,7 @@ from multicall import Call, Multicall
 from OnChain import constants as c
 from SmartWalletFinder import functions as f
 from datetime import datetime
-
+import data_analyize
 
 class SmartWalletFinder():
 
@@ -98,8 +98,9 @@ class SmartWalletFinder():
             meme_contract_address = arr[0]
             filter_block_events = await self.filter_block_events(meme_contract_address, int(arr[1]), int(arr[2]))
             event_tx_ids = self.get_event_tx_ids(filter_block_events)
-        swaps_transactions_to_process = [asyncio.create_task(self.process_swaps_transactions(transaction_hash=tx_id, meme_contract_address=meme_contract_address)) for tx_id in event_tx_ids]
-        await asyncio.gather(*swaps_transactions_to_process)
+            swap_data_infos = [await self.process_swaps_transactions(transaction_hash=tx_id, meme_contract_address=meme_contract_address) for tx_id in event_tx_ids]
+            if swap_data_infos and len(swap_data_infos) > 0:
+                data_analyize.append_token_swap_data(swap_data_infos, swap_data_infos[0]['token0_symbol'], swap_data_infos[0]['token1_symbol'])
 
 
     async def process_swaps_transactions(self, transaction_hash: str, meme_contract_address: str):
@@ -264,6 +265,7 @@ class SmartWalletFinder():
                 print(f"\n[{self.blockchain}] [{swap_infos['MAKER_INFOS']['WALLET_ADDRESS']}]\n")
                 for swap_id, swap_info in swap_infos['SWAPS'].items():
                     print(">", swap_id, "-", swap_info)
+        return result
 
 
     async def run(self):
