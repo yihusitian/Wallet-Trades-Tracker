@@ -1,4 +1,5 @@
 import json
+import time
 
 from web3 import Web3
 import asyncio
@@ -73,22 +74,24 @@ class SmartWalletFinder():
         #某些 RPC 提供者可能不支持过滤器操作，尤其是某些云服务或较旧版本的节点
         #所以使用get_logs替换
         result = []
-        while start_block <= end_block:
-            temp_end_block = start_block + 100
+        dex_swap_pair_address = self.get_dex_swap_pair_address(token_address)
+        while start_block < end_block:
+            temp_end_block = start_block + 500
             if temp_end_block >= end_block:
                 temp_end_block = end_block
             block_events = self.web3.eth.get_logs({
                 "fromBlock": start_block,
                 "toBlock": temp_end_block,
-                "address": self.get_dex_swap_pair_address(token_address),
+                "address": dex_swap_pair_address,
                 "topics": [
                     [swap_event.hex() for sublist in [swap_events for swap_events in c.SWAPS_HEX.values()] for swap_event in sublist]
                 ]
             })
-            print(f"查询区块{start_block}-{temp_end_block}的历史事件")
-            print(f"过滤查询出区块日志事件有{len(block_events)}个")
+            print(f"查询区块{start_block}-{temp_end_block}的历史swap事件")
+            print(f"过滤查询出区块日志swap事件有{len(block_events)}个")
             result += block_events
             start_block = temp_end_block
+            time.sleep(1)
 
         print(f"累计查询出区块日志事件有{len(result)}个")
         return result
