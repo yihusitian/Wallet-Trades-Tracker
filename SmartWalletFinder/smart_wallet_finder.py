@@ -38,15 +38,13 @@ class SmartWalletFinder():
             except BlockNotFound:
                 pass
 
-    async def filter_block_transaction(self, start_block: int, end_block: int, token_address: str) -> list:
+    async def filter_block_events(self, start_block: int, end_block: int, token_address: str) -> list:
         self.web3.eth.filter({
-        "fromBlock": start_block,
-        "toBlock": end_block,
-        "topics": [
-            # SWAP_EVENT_SIGNATURE_HASH,
-            None,
-            self.web3.toHex(token_address)  # 代币合约地址
-        ]
+            "fromBlock": start_block,
+            "toBlock": end_block,
+            "topics": [
+                [swap_event.hex() for sublist in [swap_events for swap_events in c.SWAPS_HEX.values()] for swap_event in sublist]
+            ]
     })
 
     async def process_transactions(self):
@@ -54,9 +52,12 @@ class SmartWalletFinder():
         Filters wallets addresses in the block.
         """
         meme_contracts = f.load_meme_contracts()
+        for meme_contract in meme_contracts:
+
+
         filtered_transactions = [
             transaction for transaction in self.transactions
-            if transaction.get('from', '').lower() in [meme_contract[:str.index(meme_contract, ":")].lower() for meme_contract in meme_contracts]
+            if transaction.get('from', '').lower() in [meme_contract[:str.index(meme_contract, ":")].lower() for meme_contract in z]
         ]
         swaps_transactions_to_process = [asyncio.create_task(self.process_swaps_transactions(transaction=transaction))
                                          for transaction in filtered_transactions]

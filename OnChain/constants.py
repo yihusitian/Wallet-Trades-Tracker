@@ -11,7 +11,7 @@ RPCS = {
 
 SWAPS_HEX = {
     "V2_POOL": [
-        HexBytes('0xc685db7ecb946f6dd83d43ee07d73ec25761abdc54bc77317d0b810b75ce42a9'),
+        # HexBytes('0xc685db7ecb946f6dd83d43ee07d73ec25761abdc54bc77317d0b810b75ce42a9'),
         #v2 swap事件签名
         HexBytes('0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822')
     ],
@@ -33,5 +33,75 @@ LINKS = {
         "ETHEREUM": {
             "DEXSCREENER": "https://dexscreener.com/ethereum/"
         }
+    }
+}
+
+UNISWAP_FACTORY_INFOS = {
+    "v2": {
+        "address": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+        "abi": '''
+            [
+              {
+                "constant": true,
+                "inputs": [
+                  {
+                    "name": "tokenA",
+                    "type": "address"
+                  },
+                  {
+                    "name": "tokenB",
+                    "type": "address"
+                  }
+                ],
+                "name": "getPair",
+                "outputs": [
+                  {
+                    "name": "pair",
+                    "type": "address"
+                  }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+              }
+            ]
+        ''',
+    },
+    "v3": {
+        "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+        "abi": '''
+            [
+              {
+                "inputs": [
+                  {
+                    "internalType": "address",
+                    "name": "tokenA",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "tokenB",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint24",
+                    "name": "fee",
+                    "type": "uint24"
+                  }
+                ],
+                "name": "getPool",
+                "outputs": [
+                  {
+                    "internalType": "address",
+                    "name": "pool",
+                    "type": "address"
+                  }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+              }
+            ]
+        ''',
+        'feelist': [100, 500, 3000, 10000]
     }
 }
