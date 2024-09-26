@@ -9,6 +9,8 @@ from multicall import Call, Multicall
 
 from OnChain import constants as c
 from SmartWalletFinder import functions as f
+from datetime import datetime
+
 
 class SmartWalletFinder():
 
@@ -76,6 +78,14 @@ class SmartWalletFinder():
         })
         return block_events
 
+    def get_event_tx_ids(self, block_events: list) -> set:
+        # 使用集合来提取不重复的交易哈希
+        unique_tx_hashes = set()
+        for log in block_events:
+            tx_hash = log['transactionHash'].hex()
+            unique_tx_hashes.add(tx_hash)
+        return unique_tx_hashes
+
     async def process_block_events(self):
         """
         Filters wallets addresses in the block.
@@ -85,13 +95,10 @@ class SmartWalletFinder():
             arr = str.split(meme_contract, ":")
             meme_contract = arr[0]
             filter_block_events = await self.filter_block_events(meme_contract, int(arr[1]), int(arr[2]))
-        swaps_blockevents_to_process = [asyncio.create_task(self.process_swaps_block_events(block_event=block_event)) for block_event in filter_block_events]
-        await asyncio.gather(*swaps_blockevents_to_process)
+            event_tx_ids = self.get_event_tx_ids(filter_block_events)
+        swaps_transactions_to_process = [asyncio.create_task(self.process_swaps_transactions(transaction_hash=tx_id)) for tx_id in event_tx_ids]
+        await asyncio.gather(*swaps_transactions_to_process)
 
-
-    async def process_swaps_block_events(self, block_event: AttributeDict):
-        tx_hash = block_event['transactionHash'].hex()
-        await self.process_swaps_transactions(tx_hash)
 
     async def process_swaps_transactions(self, transaction_hash: str):
         """
@@ -102,6 +109,8 @@ class SmartWalletFinder():
         # transaction_hash = "0xc4c4702c8e706bf7011b65a26b196c51eb3fed9ca52b1b306f1b111452756e0a"
         # 获取交易信息
         transaction = self.web3.eth.get_transaction(transaction_hash)
+
+        print(transaction)
         while True:
             try:
                 tx_infos = self.web3.eth.get_transaction_receipt(transaction_hash)
@@ -110,6 +119,13 @@ class SmartWalletFinder():
             except TransactionNotFound:
                 await asyncio.sleep(1)
 
+        # 获取区块信息
+        block = self.web3.eth.get_block(tx_infos['blockNumber'])
+
+        # 获取区块时间戳并转化为可读时间格式
+        block_timestamp = block['timestamp']
+        transaction_time = datetime.utcfromtimestamp(block_timestamp).strftime('%Y-%m-%d %H:%M:%S')
+
         from_address = transaction['from']
         # from_address = "0xf4B410A0EEE79034331353C166284130A33d8053"
         tx_logs = tx_infos['logs']
@@ -117,22 +133,14 @@ class SmartWalletFinder():
         swap_infos = {
             "CHAIN": self.blockchain,
             "MAKER_INFOS": {
-                "SHORT_ADDRESS": None
+                "WALLET_ADDRESS": None
             },
-            "LINKS": {
-                "SCAN": {
-                    "MAKER": None,
-                    "TRANSACTION": None
-                }
-            },
-            "SWAPS": {}
+            "SWAPS": {},
+            "TX_TIME": transaction_time
         }
         if tx_infos['status'] == 1:
             swap_num = 1
-            swap_infos['LINKS']['SCAN']['MAKER'] = c.LINKS['SCANS'][self.blockchain]['MAKER'] + from_address
-            swap_infos['MAKER_INFOS']['SHORT_ADDRESS'] = from_address[:6] + "..." + from_address[-6:]
-            swap_infos['LINKS']['SCAN']['TRANSACTION'] = c.LINKS['SCANS'][self.blockchain][
-                                                             'TRANSACTION'] + transaction_hash
+            swap_infos['MAKER_INFOS']['WALLET_ADDRESS'] = from_address
             for tx_log in tx_logs:
                 for tx_log_topic in tx_log['topics']:
                     for pool_type, pool_values in c.SWAPS_HEX.items():
@@ -156,13 +164,8 @@ class SmartWalletFinder():
                             ]
                             # {'token0_symbol': 'WETH', 'token1_symbol': 'MARS', 'token0_decimals': 18, 'token1_decimals': 9}
                             tokens_infos = await Multicall(queries, _w3=self.web3, require_success=True).coroutine()
-
-                            print(pool_type)
                             if pool_type == "V2_POOL":
                                 amount0_in, amount1_in, amount0_out, amount1_out = [int.from_bytes(swap_data[i:i + 32], byteorder='big') for i in range(0, 128, 32)]
-                                print(amount0_in, amount1_in)
-                                print(amount0_out, amount1_out)
-
                                 if amount0_in != 0:
                                     token0_amount = amount0_in
                                     token1_amount = amount1_out
@@ -189,14 +192,8 @@ class SmartWalletFinder():
                                         decimal -= 1 << 256
                                     return decimal
 
-                                print(swap_data)
-                                print(len(swap_data))
                                 amount0 = hex_to_decimal(hex_string=swap_data[0:32])
                                 amount1 = hex_to_decimal(hex_string=swap_data[32:64])
-
-                                print(amount0)
-                                print(amount1)
-
                                 if amount0 > 0:
                                     token0_amount = abs(amount0)
                                     token1_amount = abs(amount1)
@@ -223,15 +220,12 @@ class SmartWalletFinder():
                                     "TOKEN0": f.add_unit_to_bignumber(token0_amount / 10 ** token0_decimals),
                                     "TOKEN1": f.add_unit_to_bignumber(token1_amount / 10 ** token1_decimals)
                                 },
-                                "LINKS": {
-                                    "CHART": c.LINKS['CHARTS'][self.blockchain]['DEXSCREENER'] + pool_address
-                                }
                             }
                             swap_num += 1
 
+            print(swap_infos)
             if self.verbose is True:
-                print(
-                    f"\n[{self.blockchain}] [{swap_infos['MAKER_INFOS']['SHORT_ADDRESS']}]\n> {swap_infos['LINKS']['SCAN']['TRANSACTION']}")
+                print(f"\n[{self.blockchain}] [{swap_infos['MAKER_INFOS']['WALLET_ADDRESS']}]\n")
                 for swap_id, swap_info in swap_infos['SWAPS'].items():
                     print(">", swap_id, "-", swap_info)
 
