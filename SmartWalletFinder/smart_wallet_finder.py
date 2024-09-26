@@ -43,16 +43,19 @@ class SmartWalletFinder():
         pair_addresses = []
         uniswap_v2_pair_address = f.getUniswapV2PairAddress(self.web3, self.lp_token_address, token_address)
         uniswap_v3_pair_address = f.getUniswapV3PairAddress(self.web3, self.lp_token_address, token_address)
+        print(uniswap_v2_pair_address)
         if uniswap_v2_pair_address:
-            pair_addresses.append(pair_addresses)
+            pair_addresses.append(uniswap_v2_pair_address)
         if uniswap_v3_pair_address:
             for v3_pair_address in uniswap_v3_pair_address:
                 pair_addresses.append(v3_pair_address)
+        print(pair_addresses)
         return pair_addresses
 
 
     async def filter_block_events(self, token_address: str, start_block: int, end_block: int) -> list:
-        return self.web3.eth.filter({
+        # 创建过滤器
+        history_filter = self.web3.eth.filter({
             "fromBlock": start_block,
             "toBlock": end_block,
             "address": self.get_dex_swap_pair_address(token_address),
@@ -60,6 +63,9 @@ class SmartWalletFinder():
                 [swap_event.hex() for sublist in [swap_events for swap_events in c.SWAPS_HEX.values()] for swap_event in sublist]
             ]
         })
+        # 查询历史事件
+        block_events = history_filter.get_all_entries()
+        return block_events
 
     async def process_block_events(self):
         """
@@ -74,7 +80,7 @@ class SmartWalletFinder():
         await asyncio.gather(*swaps_blockevents_to_process)
 
 
-    async def process_swaps_transactions(self, block_event: AttributeDict):
+    async def process_swaps_block_events(self, block_event: AttributeDict):
         print(block_event)
         tx_hash = block_event['transactionHash'].hex()
         print(tx_hash)
