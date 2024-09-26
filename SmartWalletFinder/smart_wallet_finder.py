@@ -43,13 +43,11 @@ class SmartWalletFinder():
         pair_addresses = []
         uniswap_v2_pair_address = f.getUniswapV2PairAddress(self.web3, self.lp_token_address, token_address)
         uniswap_v3_pair_address = f.getUniswapV3PairAddress(self.web3, self.lp_token_address, token_address)
-        print(uniswap_v2_pair_address)
         if uniswap_v2_pair_address:
             pair_addresses.append(uniswap_v2_pair_address)
         if uniswap_v3_pair_address:
             for v3_pair_address in uniswap_v3_pair_address:
                 pair_addresses.append(v3_pair_address)
-        print(pair_addresses)
         return pair_addresses
 
 
@@ -104,7 +102,6 @@ class SmartWalletFinder():
         # transaction_hash = "0xc4c4702c8e706bf7011b65a26b196c51eb3fed9ca52b1b306f1b111452756e0a"
         # 获取交易信息
         transaction = self.web3.eth.get_transaction(transaction_hash)
-        print(transaction)
         while True:
             try:
                 tx_infos = self.web3.eth.get_transaction_receipt(transaction_hash)
@@ -130,8 +127,6 @@ class SmartWalletFinder():
             },
             "SWAPS": {}
         }
-
-        is_tx_swap = False
         if tx_infos['status'] == 1:
             swap_num = 1
             swap_infos['LINKS']['SCAN']['MAKER'] = c.LINKS['SCANS'][self.blockchain]['MAKER'] + from_address
@@ -142,14 +137,8 @@ class SmartWalletFinder():
                 for tx_log_topic in tx_log['topics']:
                     for pool_type, pool_values in c.SWAPS_HEX.items():
                         if tx_log_topic in pool_values:
-                            is_tx_swap = True
                             swap_data = tx_log['data']
-
                             pool_address = tx_log['address']
-
-                            print(pool_type, pool_address)
-                            print(swap_data)
-                            print("*" * 50)
                             queries = [
                                 Call(pool_address, 'token0()(address)', [['token0_address', None]]),
                                 Call(pool_address, 'token1()(address)', [['token1_address', None]]),
