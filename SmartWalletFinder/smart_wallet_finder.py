@@ -69,16 +69,26 @@ class SmartWalletFinder():
         # block_events = history_filter.get_all_entries()
         if end_block == 0:
             end_block = self.web3.eth.block_number
+        print(f"查询区块{start_block}-{end_block}的历史事件")
         #某些 RPC 提供者可能不支持过滤器操作，尤其是某些云服务或较旧版本的节点
         #所以使用get_logs替换
-        block_events = self.web3.eth.get_logs({
-            "fromBlock": start_block,
-            "toBlock": end_block,
-            "address": self.get_dex_swap_pair_address(token_address),
-            "topics": [
-                [swap_event.hex() for sublist in [swap_events for swap_events in c.SWAPS_HEX.values()] for swap_event in sublist]
-            ]
-        })
+        result = []
+        while start_block <= end_block:
+            temp_end_block = start_block + 100
+            if temp_end_block >= end_block:
+                temp_end_block = end_block
+            block_events = self.web3.eth.get_logs({
+                "fromBlock": start_block,
+                "toBlock": temp_end_block,
+                "address": self.get_dex_swap_pair_address(token_address),
+                "topics": [
+                    [swap_event.hex() for sublist in [swap_events for swap_events in c.SWAPS_HEX.values()] for swap_event in sublist]
+                ]
+            })
+            result += block_events
+            start_block = temp_end_block
+
+        print(f"过滤查询出区块日志事件有{len(block_events)}个")
         return block_events
 
     def get_event_tx_ids(self, block_events: list) -> set:
