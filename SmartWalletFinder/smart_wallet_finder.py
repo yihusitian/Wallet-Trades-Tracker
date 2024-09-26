@@ -12,10 +12,11 @@ from SmartWalletFinder import functions as f
 
 class SmartWalletFinder():
 
-    def __init__(self, blockchain: str, verbose: bool):
+    def __init__(self, blockchain: str, verbose: bool, lp_token_address: str):
         self.blockchain = blockchain
         self.verbose = verbose
         self.web3 = Web3(MultiProvider(c.RPCS[blockchain]))
+        self.lp_token_address = lp_token_address
         if self.verbose is True:
             print(f"[SMART_WALLET_FINDER] [{self.blockchain}] [STARTED]")
 
@@ -38,14 +39,27 @@ class SmartWalletFinder():
             except BlockNotFound:
                 pass
 
+    def get_dex_swap_pair_address(self, token_address: str):
+        pair_addresses = []
+        uniswap_v2_pair_address = f.getUniswapV2PairAddress(self.lp_token_address, token_address)
+        uniswap_v3_pair_address = f.getUniswapV3PairAddress(self.lp_token_address, token_address)
+        if uniswap_v2_pair_address:
+            pair_addresses.append(pair_addresses)
+        if uniswap_v3_pair_address:
+            for v3_pair_address in uniswap_v3_pair_address:
+                pair_addresses.append(v3_pair_address)
+        return pair_addresses
+
+
     async def filter_block_events(self, start_block: int, end_block: int, token_address: str) -> list:
-        self.web3.eth.filter({
+        return self.web3.eth.filter({
             "fromBlock": start_block,
             "toBlock": end_block,
+            "address": self.get_dex_swap_pair_address(token_address),
             "topics": [
                 [swap_event.hex() for sublist in [swap_events for swap_events in c.SWAPS_HEX.values()] for swap_event in sublist]
             ]
-    })
+        })
 
     async def process_transactions(self):
         """
@@ -53,6 +67,7 @@ class SmartWalletFinder():
         """
         meme_contracts = f.load_meme_contracts()
         for meme_contract in meme_contracts:
+            arr = str.split(meme_contract, ":")
 
 
         filtered_transactions = [
