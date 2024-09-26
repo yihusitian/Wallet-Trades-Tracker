@@ -1,3 +1,5 @@
+import json
+
 from web3 import Web3
 import asyncio
 from web3.datastructures import AttributeDict
@@ -93,14 +95,14 @@ class SmartWalletFinder():
         meme_contracts = f.load_meme_contracts(self.blockchain)
         for meme_contract in meme_contracts:
             arr = str.split(meme_contract, ":")
-            meme_contract = arr[0]
-            filter_block_events = await self.filter_block_events(meme_contract, int(arr[1]), int(arr[2]))
+            meme_contract_address = arr[0]
+            filter_block_events = await self.filter_block_events(meme_contract_address, int(arr[1]), int(arr[2]))
             event_tx_ids = self.get_event_tx_ids(filter_block_events)
-        swaps_transactions_to_process = [asyncio.create_task(self.process_swaps_transactions(transaction_hash=tx_id)) for tx_id in event_tx_ids]
+        swaps_transactions_to_process = [asyncio.create_task(self.process_swaps_transactions(transaction_hash=tx_id, meme_contract_address=meme_contract_address)) for tx_id in event_tx_ids]
         await asyncio.gather(*swaps_transactions_to_process)
 
 
-    async def process_swaps_transactions(self, transaction_hash: str):
+    async def process_swaps_transactions(self, transaction_hash: str, meme_contract_address: str):
         """
         Process swaps transactions.
         Parameters:
@@ -110,7 +112,7 @@ class SmartWalletFinder():
         # 获取交易信息
         transaction = self.web3.eth.get_transaction(transaction_hash)
 
-        print(transaction)
+        # print(transaction)
         while True:
             try:
                 tx_infos = self.web3.eth.get_transaction_receipt(transaction_hash)
@@ -137,6 +139,15 @@ class SmartWalletFinder():
             },
             "SWAPS": {},
             "TX_TIME": transaction_time
+        }
+        result = {
+            "wallet_address": from_address,
+            "tx_time": transaction_time,
+            "token0_symbol": None,
+            "token1_symbol": None,
+            "token0_amount": 0,
+            "token1_amount": 0,
+            "direction": None #1买入 0卖出
         }
         if tx_infos['status'] == 1:
             swap_num = 1
@@ -172,6 +183,8 @@ class SmartWalletFinder():
 
                                     token0_symbol = tokens_infos['token0_symbol']
                                     token1_symbol = tokens_infos['token1_symbol']
+                                    token0_contract_address = token0_address
+                                    token1_contract_address = token1_address
                                     token0_decimals = tokens_infos['token0_decimals']
                                     token1_decimals = tokens_infos['token1_decimals']
 
@@ -181,6 +194,8 @@ class SmartWalletFinder():
 
                                     token0_symbol = tokens_infos['token1_symbol']
                                     token1_symbol = tokens_infos['token0_symbol']
+                                    token0_contract_address = token1_address
+                                    token1_contract_address = token0_address
                                     token0_decimals = tokens_infos['token1_decimals']
                                     token1_decimals = tokens_infos['token0_decimals']
 
@@ -200,6 +215,8 @@ class SmartWalletFinder():
 
                                     token0_symbol = tokens_infos['token0_symbol']
                                     token1_symbol = tokens_infos['token1_symbol']
+                                    token0_contract_address = token0_address
+                                    token1_contract_address = token1_address
                                     token0_decimals = tokens_infos['token0_decimals']
                                     token1_decimals = tokens_infos['token1_decimals']
                                 elif amount0 < 0:
@@ -208,22 +225,41 @@ class SmartWalletFinder():
 
                                     token0_symbol = tokens_infos['token1_symbol']
                                     token1_symbol = tokens_infos['token0_symbol']
+                                    token0_contract_address = token1_address
+                                    token1_contract_address = token0_address
                                     token0_decimals = tokens_infos['token1_decimals']
                                     token1_decimals = tokens_infos['token0_decimals']
 
+                            token0_final_amount = token0_amount / 10 ** token0_decimals
+                            token1_final_amount = token1_amount / 10 ** token1_decimals
                             swap_infos['SWAPS'][swap_num] = {
                                 "SYMBOLS": {
                                     "TOKEN0": token0_symbol,
-                                    "TOKEN1": token1_symbol
+                                    "TOKEN1": token1_symbol,
+                                    "TOKEN0_ADDRESS": token0_contract_address,
+                                    "TOKEN1_ADDRESS": token1_contract_address,
                                 },
                                 "AMOUNTS": {
-                                    "TOKEN0": f.add_unit_to_bignumber(token0_amount / 10 ** token0_decimals),
-                                    "TOKEN1": f.add_unit_to_bignumber(token1_amount / 10 ** token1_decimals)
+                                    "TOKEN0": token0_final_amount,
+                                    "TOKEN1": token1_final_amount
                                 },
                             }
                             swap_num += 1
 
-            print(swap_infos)
+                            if token0_contract_address.lower() == self.lp_token_address.lower() and token1_contract_address.lower() == meme_contract_address.lower():
+                                result['token0_symbol'] = token0_symbol
+                                result['token1_symbol'] = token1_symbol
+                                result['token0_amount'] += token0_final_amount
+                                result['token1_amount'] += token1_final_amount
+                                result['direction'] = 1
+
+                            if token0_contract_address.lower() == meme_contract_address.lower() and token1_contract_address.lower() == self.lp_token_address.lower():
+                                result['token0_symbol'] = token0_symbol
+                                result['token1_symbol'] = token1_symbol
+                                result['token0_amount'] += token0_final_amount
+                                result['token1_amount'] += token1_final_amount
+                                result['direction'] = 0
+
             if self.verbose is True:
                 print(f"\n[{self.blockchain}] [{swap_infos['MAKER_INFOS']['WALLET_ADDRESS']}]\n")
                 for swap_id, swap_info in swap_infos['SWAPS'].items():
