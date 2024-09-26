@@ -12,9 +12,11 @@ RPCS = {
 SWAPS_HEX = {
     "V2_POOL": [
         HexBytes('0xc685db7ecb946f6dd83d43ee07d73ec25761abdc54bc77317d0b810b75ce42a9'),
+        #v2 swap事件签名
         HexBytes('0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822')
     ],
     "V3_POOL": [
+        #v3 swap事件签名
         HexBytes('0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67')
     ]
 }

@@ -12,6 +12,8 @@ swap_event_signature_hash = web3.keccak(text="Swap(address,uint256,uint256,uint2
 
 swap_event_signature_v3 = web3.keccak(text='Swap(address,address,int256,int256,uint160,uint128,int24)').hex()
 
+print(swap_event_signature_hash)
+print(swap_event_signature_v3)
 
 def getUniswapV3PairAddress():
     # Uniswap V3 工厂合约地址
@@ -114,19 +116,19 @@ def getUniswapV2PairAddress():
 
 
 if __name__ == '__main__':
+    # print(getUniswapV2PairAddress())
+    # print(getUniswapV3PairAddress())
     # 查询某个代币合约的历史事件
     filter_params = {
-        # 20805166
-        # 'fromBlock': 20819132
-        # 过去100000个区块
-        # 'toBlock': 20819132
         # 到最新区块
-        'fromBlock': web3.eth.block_number - 1000,  # 过去100000个区块
-        'toBlock': web3.eth.block_number,  # 到最新区块
-        'address': getUniswapV3PairAddress(),
+    'fromBlock': 20819132 - 100,  # 过去100000个区块
+    'toBlock': 20819132 + 100,  # 到最新区块
+        # 'fromBlock': web3.eth.block_number - 100,  # 过去100000个区块
+        # 'toBlock': web3.eth.block_number,  # 到最新区块
+        'address': [getUniswapV3PairAddress(), getUniswapV2PairAddress()],
         'topics': [
-            # swap_event_signature_hash
-            swap_event_signature_v3
+            [swap_event_signature_hash, swap_event_signature_v3]
+
         ]  # 可选择特定事件签名，也可以留空
     }
 
