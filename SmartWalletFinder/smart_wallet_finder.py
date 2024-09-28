@@ -163,7 +163,7 @@ class SmartWalletFinder():
             print(f"获取token0:{token0_address}, token1:{token1_address}信息异常了,异常{e}")
             raise e
 
-    def getBlockInfo(self, block_num):
+    def getBlockInfo(self, block_num, retry=0):
         try:
             key = f"block_{block_num}"
             # 获取区块信息
@@ -175,6 +175,9 @@ class SmartWalletFinder():
             return block
         except Exception as e:
             print(f"获取区块{block_num}信息异常了,异常{e}")
+            if retry < 3:
+                retry += 1
+                return self.getBlockInfo(block_num, retry)
             raise e
 
     async def process_swaps_transactions(self, transaction_hash: str, meme_contract_address: str):
@@ -345,9 +348,8 @@ class SmartWalletFinder():
         """
         Creates a loop that will analyze each block created.
         """
-        # await self.process_block_events()
-        await self.process_swaps_transactions(transaction_hash="0xdd0a6caaf544366d572e7b00a7331a78588ddee4d95843d92be4ba1d00d5da56", meme_contract_address="0x28561B8A2360F463011c16b6Cc0B0cbEF8dbBcad")
-        await self.process_swaps_transactions(transaction_hash="0xd62eb767109f4b742b7d0ced4d519df343460bd9f1c106de7bfdf74f9ad01033", meme_contract_address="0x28561B8A2360F463011c16b6Cc0B0cbEF8dbBcad")
-        # await self.process_swaps_transactions(transaction=None)
+        await self.process_block_events()
+        # await self.process_swaps_transactions(transaction_hash="0xdd0a6caaf544366d572e7b00a7331a78588ddee4d95843d92be4ba1d00d5da56", meme_contract_address="0x28561B8A2360F463011c16b6Cc0B0cbEF8dbBcad")
+        # await self.process_swaps_transactions(transaction_hash="0xd62eb767109f4b742b7d0ced4d519df343460bd9f1c106de7bfdf74f9ad01033", meme_contract_address="0x28561B8A2360F463011c16b6Cc0B0cbEF8dbBcad")
 
 

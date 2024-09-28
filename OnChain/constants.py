@@ -5,7 +5,10 @@ from OnChain import functions as f
 
 RPCS = {
     "ETHEREUM": [
-        "https://ethereum.publicnode.com"
+        "https://ethereum.publicnode.com",
+        "https://ethereum-rpc.publicnode.com",
+        "https://eth-mainnet.nodereal.io/v1/1659dfb40aa24bbb8153a677b98064d7",
+        "https://eth-mainnet-public.unifra.io"
         # "https://mainnet.infura.io/v3/cf894d2a298148e1b27782472731936e"
     ]
 }
