@@ -14,6 +14,7 @@ from OnChain import constants as c
 from SmartWalletFinder import functions as f
 from datetime import datetime
 from SmartWalletFinder import data_analyize
+from SmartWalletFinder import simple_cache
 
 class SmartWalletFinder():
 
@@ -22,6 +23,7 @@ class SmartWalletFinder():
         self.verbose = verbose
         self.web3 = Web3(MultiProvider(c.RPCS[blockchain]))
         self.lp_token_address = lp_token_address
+        self.cache = simple_cache.SimpleCache()
         if self.verbose is True:
             print(f"[SMART_WALLET_FINDER] [{self.blockchain}] [STARTED]")
 
@@ -76,7 +78,7 @@ class SmartWalletFinder():
         result = []
         dex_swap_pair_address = self.get_dex_swap_pair_address(token_address)
         while start_block < end_block:
-            temp_end_block = start_block + 500
+            temp_end_block = start_block + 2000
             if temp_end_block >= end_block:
                 temp_end_block = end_block
             block_events = self.web3.eth.get_logs({
@@ -98,11 +100,14 @@ class SmartWalletFinder():
 
     def get_event_tx_ids(self, block_events: list) -> set:
         # 使用集合来提取不重复的交易哈希
-        unique_tx_hashes = set()
-        for log in block_events:
-            tx_hash = log['transactionHash'].hex()
-            unique_tx_hashes.add(tx_hash)
-        return unique_tx_hashes
+        seen = set()
+        result = []
+        for item in block_events:
+            tx_hash = item['transactionHash'].hex()
+            if tx_hash not in seen:
+                seen.add(tx_hash)
+                result.append(tx_hash)
+        return result
 
     async def process_block_events(self):
         """
@@ -119,6 +124,58 @@ class SmartWalletFinder():
             if swap_data_infos and len(swap_data_infos) > 0:
                 data_analyize.append_token_swap_data(swap_data_infos, swap_data_infos[0]['token0_symbol'], swap_data_infos[0]['token1_symbol'])
 
+    async def multicallGetPoolTokenInfo(self, pool_address: str):
+        try:
+            # 池子币对儿
+            key = f"poolinfo_{pool_address}"
+            pool_tokens_infos = self.cache.get(key)
+            if pool_tokens_infos is None:
+                queries = [
+                    Call(pool_address, 'token0()(address)', [['token0_address', None]]),
+                    Call(pool_address, 'token1()(address)', [['token1_address', None]]),
+                ]
+                print(f"获取池子币对儿{pool_address}信息")
+                pool_tokens_infos = await Multicall(queries, _w3=self.web3, require_success=True).coroutine()
+                self.cache.set(key, pool_tokens_infos)
+            return pool_tokens_infos
+        except Exception as e:
+            print(f"获取池子币对儿{pool_address}异常了,异常{e}")
+            raise e
+
+    async def multicallGetTokenInfos(self, token0_address: str, token1_address: str):
+        try:
+            # {'token0_symbol': 'WETH', 'token1_symbol': 'MARS', 'token0_decimals': 18, 'token1_decimals': 9}
+            key = f"tokeninfo_{token0_address}_{token1_address}"
+            # 池子币对儿
+            tokens_infos = self.cache.get(key)
+            if tokens_infos is None:
+                print(f"获取token0:{token0_address}, token1:{token1_address}信息")
+                queries = [
+                    Call(token0_address, 'symbol()(string)', [['token0_symbol', None]]),
+                    Call(token1_address, 'symbol()(string)', [['token1_symbol', None]]),
+                    Call(token0_address, 'decimals()(uint8)', [['token0_decimals', None]]),
+                    Call(token1_address, 'decimals()(uint8)', [['token1_decimals', None]])
+                ]
+                tokens_infos = await Multicall(queries, _w3=self.web3, require_success=True).coroutine()
+                self.cache.set(key, tokens_infos)
+            return tokens_infos
+        except Exception as e:
+            print(f"获取token0:{token0_address}, token1:{token1_address}信息异常了,异常{e}")
+            raise e
+
+    def getBlockInfo(self, block_num):
+        try:
+            key = f"block_{block_num}"
+            # 获取区块信息
+            block = self.cache.get(key)
+            if block is None:
+                print(f"获取区块{block_num}信息")
+                block = self.web3.eth.get_block(block_num)
+                self.cache.set(key, block)
+            return block
+        except Exception as e:
+            print(f"获取区块{block_num}信息异常了,异常{e}")
+            raise e
 
     async def process_swaps_transactions(self, transaction_hash: str, meme_contract_address: str):
         try:
@@ -137,11 +194,12 @@ class SmartWalletFinder():
                     tx_infos = self.web3.eth.get_transaction_receipt(transaction_hash)
                     break
                 # If RPC provider not synchronized
-                except TransactionNotFound:
+                except TransactionNotFound as e:
+                    print(e)
                     await asyncio.sleep(1)
 
             # 获取区块信息
-            block = self.web3.eth.get_block(tx_infos['blockNumber'])
+            block = self.getBlockInfo(tx_infos['blockNumber'])
 
             # 获取区块时间戳并转化为可读时间格式
             block_timestamp = block['timestamp']
@@ -177,24 +235,13 @@ class SmartWalletFinder():
                             if tx_log_topic in pool_values:
                                 swap_data = tx_log['data']
                                 pool_address = tx_log['address']
-                                queries = [
-                                    Call(pool_address, 'token0()(address)', [['token0_address', None]]),
-                                    Call(pool_address, 'token1()(address)', [['token1_address', None]]),
-                                ]
                                 # 池子币对儿
-                                pool_tokens_infos = await Multicall(queries, _w3=self.web3,
-                                                                    require_success=True).coroutine()
+                                pool_tokens_infos = await self.multicallGetPoolTokenInfo(pool_address)
+
                                 token0_address = Web3.to_checksum_address(pool_tokens_infos['token0_address'])
                                 token1_address = Web3.to_checksum_address(pool_tokens_infos['token1_address'])
-
-                                queries = [
-                                    Call(token0_address, 'symbol()(string)', [['token0_symbol', None]]),
-                                    Call(token1_address, 'symbol()(string)', [['token1_symbol', None]]),
-                                    Call(token0_address, 'decimals()(uint8)', [['token0_decimals', None]]),
-                                    Call(token1_address, 'decimals()(uint8)', [['token1_decimals', None]])
-                                ]
                                 # {'token0_symbol': 'WETH', 'token1_symbol': 'MARS', 'token0_decimals': 18, 'token1_decimals': 9}
-                                tokens_infos = await Multicall(queries, _w3=self.web3, require_success=True).coroutine()
+                                tokens_infos = await self.multicallGetTokenInfos(token0_address, token1_address)
                                 if pool_type == "V2_POOL":
                                     amount0_in, amount1_in, amount0_out, amount1_out = [
                                         int.from_bytes(swap_data[i:i + 32], byteorder='big') for i in range(0, 128, 32)]
@@ -298,7 +345,9 @@ class SmartWalletFinder():
         """
         Creates a loop that will analyze each block created.
         """
-        await self.process_block_events()
+        # await self.process_block_events()
+        await self.process_swaps_transactions(transaction_hash="0xdd0a6caaf544366d572e7b00a7331a78588ddee4d95843d92be4ba1d00d5da56", meme_contract_address="0x28561B8A2360F463011c16b6Cc0B0cbEF8dbBcad")
+        await self.process_swaps_transactions(transaction_hash="0xd62eb767109f4b742b7d0ced4d519df343460bd9f1c106de7bfdf74f9ad01033", meme_contract_address="0x28561B8A2360F463011c16b6Cc0B0cbEF8dbBcad")
         # await self.process_swaps_transactions(transaction=None)
 
 

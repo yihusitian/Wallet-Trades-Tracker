@@ -2,7 +2,11 @@ from typing import Union
 import os
 from web3 import Web3
 from OnChain import constants as c
+from cachetools import cached, TTLCache
+from multicall import Call, Multicall
 
+
+cache = TTLCache(maxsize=10000, ttl=3000)  # 设置最大缓存条目数和缓存超时时间（秒）
 
 def add_unit_to_bignumber(bignumber: Union[int, float]) -> str:
     """
@@ -78,3 +82,5 @@ def getUniswapV3PairAddress(web3: Web3, tokenAaddress:str, tokenBaddress:str) ->
     pool_addresses = [pool_address for pool_address in [v3_factory_contract.functions.getPool(tokenA, tokenB, fee).call() for fee in uniswap_v3_factory_feelist] if pool_address != '0x0000000000000000000000000000000000000000']
     print(f"Uniswap V3 Pool Addresses: {pool_addresses}")
     return pool_addresses
+
+
